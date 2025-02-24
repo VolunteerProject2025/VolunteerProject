@@ -1,17 +1,19 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const routes = require('./routes');
+const connectDB = require('./config/db');
 
 const app = express();
 const PORT = 3000;
+
+// Kết nối MongoDB
+connectDB();
 
 // Middleware
 app.use(bodyParser.json());
 
 // Routes
 app.use('/', routes);
-
-// Chưa kết nối MongoDB
 
 // Khởi động server
 app.listen(PORT, () => {
