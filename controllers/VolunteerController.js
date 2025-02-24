@@ -8,7 +8,7 @@ const Feedback = require('../models/Feedback');
 const router = express.Router();
 
 // Lấy thông tin chi tiết của một tình nguyện viên
-router.get('/:volunteerId', async (req, res) => {
+exports.getVolunteerDetails = async (req, res) => {
     try {
         const { volunteerId } = req.params;
 
@@ -40,6 +40,14 @@ router.get('/:volunteerId', async (req, res) => {
         console.error(error);
         res.status(500).json({ message: 'Internal server error' });
     }
-});
+};
 
-module.exports = router;
+exports.getAllVolunteer = async (req, res) => {
+    try {
+        res.send("Tao la Volunteer!!")
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
