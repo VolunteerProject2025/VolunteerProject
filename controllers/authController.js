@@ -49,8 +49,7 @@ exports.googleAuth = async (req, res) => {
                 googleId,
                 fullName: payload.name,
                 email: payload.email,
-                password: await bcrypt.hash('123', 10),
-                is_verfied: true
+                is_verified: true
             });
             await user.save();
         }
