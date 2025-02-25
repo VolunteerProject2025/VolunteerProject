@@ -1,14 +1,11 @@
 const mongoose = require('mongoose');
 const OrganizationSchema = new mongoose.Schema({
-  name: String,
-  description: {type:String, default: null},
-  
-  contactEmail: { type: String, unique: true, required: true },
-  password: String,
-  role: { type: String, enum: ["Volunteer", "Organization", "Admin"] },
-  status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
-  is_verified: { type: Boolean, default: false },
-
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
+  name: { type: String, required: true },
+  description: { type: String },
+  contactEmail: { type: String, required: true },
+  address: { type: String, required: true },
+  phone: { type: Number, required: true, min: 10, max: 12 },
 }, { timestamps: true });
 
 
