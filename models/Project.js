@@ -7,7 +7,7 @@ const ProjectSchema = new mongoose.Schema({
     endDate: {type: Date, required: true },
     status: { type: String, enum: ['Pending', 'Approved', 'Completed'], default: 'Pending' },
     organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
-    volunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Volunteer' }]
+    volunteer: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Volunteer' }]
 });
 
 module.exports = mongoose.model('Project', ProjectSchema);
