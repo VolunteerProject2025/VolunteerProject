@@ -1,8 +1,10 @@
+
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
+const generateToken = require('../utils/jwt');
 
 const oAuth2Client = new OAuth2Client(
     process.env.CLIENT_ID,
@@ -20,10 +22,20 @@ const transporter = nodemailer.createTransport({
 // Google OAuth Login
 exports.googleAuth = async (req, res) => {
     try {
-        const { tokens } = await oAuth2Client.getToken(req.body.code);
+        const { code } = req.body;
 
+        if (!code) {
+            return res.status(400).json({ error: 'Missing authorization code' });
+        }
+        const { tokens } = await oAuth2Client.getToken(code);
+
+        // Make sure id_token exists and is a string
+        if (!tokens.id_token || typeof tokens.id_token !== 'string') {
+            return res.status(400).json({ error: 'Invalid ID token received from Google' });
+        }
+        // Exchange the code for tokens
         const ticket = await oAuth2Client.verifyIdToken({
-            idToken: tokens.access_token,
+            idToken: tokens.id_token,
             audience: process.env.CLIENT_ID,
         });
 
@@ -37,15 +49,24 @@ exports.googleAuth = async (req, res) => {
                 googleId,
                 fullName: payload.name,
                 email: payload.email,
-                role: "Volunteer",
                 password: await bcrypt.hash('123', 10),
                 is_verfied: true
             });
             await user.save();
         }
-
-      
-        res.json({ user });
+        const token = generateToken(user);
+        req.session.user = {
+            id: user._id,
+            email: user.email,
+            role: user.role, // Ensure `role` exists in your User model
+        };
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: true,     // Ensures it's sent over HTTPS (set to false for local dev)
+            sameSite: "Strict", // Prevents CSRF attacks
+            maxAge: 24 * 60 * 60 * 1000, // 1 day
+        });
+        res.json({ message: "Login successful", user: req.session.user });
     } catch (error) {
         console.error('Google Auth Error:', error);
         res.status(500).json({ error: 'Authentication failed' });
@@ -66,17 +87,28 @@ exports.normalLogin = async (req, res) => {
         }
         if (!user.is_verified) {
             return res.status(403).json({ message: "Please verify your email before logging in." });
-          }
+        }
         // Compare passwords
         const isMatch = await bcrypt.compare(password, user.password);
 
-     
+
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid  password' });
         }
 
-     
-        res.json({ user });
+        const token = generateToken(user);
+        req.session.user = {
+            id: user._id,
+            email: user.email,
+            role: user.role, // Ensure `role` exists in your User model
+        };
+        res.cookie("token", token, {
+            httpOnly: true,   // Prevents JavaScript access
+            secure: true,     // Ensures it's sent over HTTPS (set to false for local dev)
+            sameSite: "Strict", // Prevents CSRF attacks
+            maxAge: 24 * 60 * 60 * 1000, // 1 day
+        });
+        res.json({ message: "Login successful", user: req.session.user });
     } catch (error) {
         console.error('Login Error:', error);
         res.status(500).json({ error: 'Authentication failed' });
@@ -104,7 +136,7 @@ const sendVerificationEmail = async (email, token) => {
 // User Registration
 exports.register = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { fullName, email, password } = req.body;
 
         let user = await User.findOne({ email });
         if (user) {
@@ -115,9 +147,10 @@ exports.register = async (req, res) => {
 
         // Create a new user but set "verified" to false
         user = new User({
+            fullName,
             email,
             password: hashedPassword,
-            role: "Volunteer",
+
             is_verfied: false, // Add this field in your User model
         });
 
@@ -165,3 +198,35 @@ exports.verifyEmail = async (req, res) => {
     }
 };
 
+exports.logout = async (req, res) => {
+    try {
+        req.session.destroy(() => {
+            res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "Strict" });
+            res.json({ message: "Logged out successfully" });
+        });
+    } catch (error) {
+        console.error('Logout Error:', error);
+        res.status(500).json({ error: 'Logout failed' });
+    }
+};
+
+exports.chooseRole = async (req, res) => {
+    try {
+        const { role } = req.body;
+        const user_find = req.session.user;
+
+        const user = await User.findByIdAndUpdate(user_find.id,
+            { role }
+        )
+        req.session.user = {
+            id: user._id,
+            email: user.email,
+            role: user.role, // Ensure `role` exists in your User model
+        };
+        res.status(200).json({ message: 'Role updated successfully', user: req.session.user });
+    } catch (error) {
+        console.error('Logout Error:', error);
+        res.status(500).json({ error: 'Choose Role failed' });
+    }
+
+}
