@@ -1,5 +1,5 @@
 const express = require('express');
-const { googleAuth, normalLogin, register,verifyEmail, logout, chooseRole,authenStatus, getCurrentUser } = require('../controllers/authController');
+const { googleAuth, normalLogin, register,verifyEmail, logout, chooseRole, getCurrentUser,changePassword } = require('../controllers/authController');
 const {authenticateToken} = require("../middleware/auth");
 
 const router = express.Router();
@@ -10,8 +10,8 @@ router.post('/register', register);
 router.get('/verify_email', verifyEmail);
 router.post('/logout',logout);
 router.post('/role',authenticateToken, chooseRole);
-router.get('/status', authenStatus);
 router.get('/me',authenticateToken, getCurrentUser);
 
+router.post("/change-password", authenticateToken, changePassword);
 
 module.exports = router;

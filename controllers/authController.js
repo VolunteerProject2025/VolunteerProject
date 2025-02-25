@@ -43,11 +43,13 @@ exports.googleAuth = async (req, res) => {
         let user = await User.findOne({ googleId });
 
         if (!user) {
+            const hashedPassword = await bcrypt.hash("123", 10);
             user = new User({
                 googleId,
                 fullName: payload.name,
                 email: payload.email,
                 is_verified: true,
+                password: hashedPassword
             });
             await user.save();
         }
@@ -222,7 +224,6 @@ exports.chooseRole = async (req, res) => {
 };
 exports.getCurrentUser = async (req,res) => {
     try {
-        console.log("Token userId:", req.user.userId); 
         const user = await User.findById(req.user.userId).select("-password"); // Exclude password
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -235,10 +236,46 @@ exports.getCurrentUser = async (req,res) => {
     }
 }
 
-// Check Authentication Status
-exports.authenStatus = async (req, res) => {
-    res.json({
-        authenticated: true,
-        user: req.user, // Ensure this is set from the middleware
-    });
+exports.changePassword = async (req, res) => {
+    try {
+        // Ensure user is authenticated (assuming middleware extracts userId from the token)
+        const userId = req.user.userId; 
+        const { oldPassword, newPassword } = req.body;
+        console.log("Request Body:", req.body);
+        console.log("User ID from Token:", userId);
+        // Validate input
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ message: "Both old and new passwords are required" });
+        }
+
+        // Find the user in the database
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (!user.password) {
+            return res.status(400).json({ message: "Stored password is missing or invalid" });
+        }
+        // Verify the old password
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Incorrect old password" });
+        }
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update password in the database
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ message: "Password updated successfully" });
+
+    } catch (error) {
+        console.error("Error changing password:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
 };
+// Check Authentication Status
+
