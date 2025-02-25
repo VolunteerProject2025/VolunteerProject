@@ -5,8 +5,6 @@ const VolunteerParticipation = require('../models/VolunteerParticipation');
 const Certificate = require('../models/Certificate');
 const Feedback = require('../models/Feedback');
 
-const router = express.Router();
-
 // Lấy thông tin chi tiết của một tình nguyện viên
 exports.getVolunteerDetails = async (req, res) => {
     try {
@@ -44,7 +42,10 @@ exports.getVolunteerDetails = async (req, res) => {
 
 exports.getAllVolunteer = async (req, res) => {
     try {
-        res.send("Tao la Volunteer!!")
+        const volunteers = await Volunteer.find().populate('user');
+
+        res.json(volunteers);
+        res.send("Tao la Volunteer!!!")
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Internal server error' });
