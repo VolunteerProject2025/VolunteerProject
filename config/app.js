@@ -23,6 +23,9 @@ app.use(session({
 }));
 // Routes
 const authRoutes = require('../routes/authRoutes');
+const userRoutes = require('../routes/userRoutes');
+
 app.use('/auth', authRoutes);
+app.use('/user', userRoutes);
 
 module.exports = app;
