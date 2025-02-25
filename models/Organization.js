@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
-const UserSchema = new mongoose.Schema({
-  googleId: { type: String, unique: true, sparse: true },
-  fullName: String,
-  email: { type: String, unique: true, required: true },
+const OrganizationSchema = new mongoose.Schema({
+  name: String,
+  description: {type:String, default: null},
+  
+  contactEmail: { type: String, unique: true, required: true },
   password: String,
   role: { type: String, enum: ["Volunteer", "Organization", "Admin"] },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
@@ -11,4 +12,4 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model('Organization', OrganizationSchema);
