@@ -107,11 +107,13 @@ exports.normalLogin = async (req, res) => {
 const sendVerificationEmail = async (email, token) => {
     const verificationLink = `${process.env.BACK_END_URL}/auth/verify_email?token=${token}`;
 
+    const emailHTML = emailTemplate.replace(/{{action_url}}/g, verificationLink);
+
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: "Verify Your Email",
-        html: `<p>Click <a href="${verificationLink}">here</a> to verify your email and sign in.</p>`,
+        subject: "Verify Your Email - Volunteer Connection",
+        html: emailHTML,
     };
 
     try {
@@ -121,6 +123,7 @@ const sendVerificationEmail = async (email, token) => {
         console.error("Error sending email:", error);
     }
 };
+
 
 // User Registration
 exports.register = async (req, res) => {
