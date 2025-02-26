@@ -1,0 +1,175 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <title>Verify your email - Volunteer Connection</title>
+  <style type="text/css" rel="stylesheet" media="all">
+    *:not(br):not(tr):not(html) {
+      font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+    body {
+      width: 100% !important;
+      height: 100%;
+      margin: 0;
+      line-height: 1.6;
+      background-color: #f4f4f4;
+      color: #606060;
+      -webkit-text-size-adjust: none;
+    }
+    a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+    .email-wrapper {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .email-content {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .email-masthead {
+      padding: 20px 0;
+      text-align: center;
+      background-color: #007BFF;
+      color: #ffffff;
+    }
+    .email-masthead img {
+      max-width: 150px;
+    }
+    .email-masthead_name {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .email-body {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .email-body_inner {
+      width: 570px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .email-footer {
+      width: 570px;
+      margin: 20px auto;
+      text-align: center;
+      font-size: 14px;
+      color: #839197;
+    }
+    .body-action {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .content-cell {
+      padding: 20px;
+    }
+    h1 {
+      color: #333333;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+    }
+    p {
+      color: #606060;
+      font-size: 16px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 25px;
+      background-color: #007BFF;
+      border-radius: 6px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      text-decoration: none;
+      box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s ease-in-out;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    .footer-text {
+      color: #839197;
+      font-size: 14px;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-body_inner, .email-footer {
+        width: 100% !important;
+      }
+      .button {
+        width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center">
+        <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
+          <!-- Header -->
+          <tr>
+            <td class="email-masthead">
+              <a class="email-masthead_name">Volunteer Connection</a>
+            </td>
+          </tr>
+          <!-- Email Body -->
+          <tr>
+            <td class="email-body" width="100%">
+              <table class="email-body_inner" align="center" width="570" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="content-cell">
+                    <h1>Welcome to Volunteer Connection!</h1>
+                    <p>We're excited to have you join our community. To get started, please verify your email address.</p>
+                    <!-- Action Button -->
+                    <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center">
+                          <a href="{{action_url}}" class="button">Verify Email</a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+                    <p><a href="{{action_url}}">{{action_url}}</a></p>
+                    <p>Thank you for being a part of our mission!</p>
+                    <p>Best regards, <br> The Volunteer Connection Team</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td>
+              <table class="email-footer" align="center" width="570" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="content-cell">
+                    <p class="footer-text">Volunteer Connection | Connecting volunteers with meaningful causes.</p>
+                    <p class="footer-text">If you did not sign up for this account, please ignore this email.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
