@@ -19,6 +19,7 @@ app.listen(PORT, () => {
 =======
 const express = require('express');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 const routes = require('./routes');
 const connectDB = require('./config/db');
 
@@ -30,6 +31,7 @@ connectDB();
 
 // Middleware
 app.use(bodyParser.json());
+app.use(cors());
 
 // Routes
 app.use('/', routes);
