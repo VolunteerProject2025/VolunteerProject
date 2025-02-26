@@ -6,7 +6,8 @@ const OrganizationSchema = new mongoose.Schema({
     description: { type: String },
     contactEmail: { type: String, required: true },
     address: { type: String, required: true },
-    phone: { type: Number, required: true, min: 10, max: 12 },
+    phone: { type: Number, required: true },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
 });
 
 module.exports = mongoose.model('Organization', OrganizationSchema);
