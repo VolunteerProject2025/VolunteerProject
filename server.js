@@ -1,37 +1,18 @@
-<<<<<<< HEAD
-require('dotenv').config();
 
+require('dotenv').config();
+const bodyParser = require('body-parser');
+const routes = require('./routes');
 const connectDB = require('./config/db');
 const app = require('./config/app');
 
-
+const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
 connectDB();
 console.log();
 
-
-// Start Server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}` );
-});
-=======
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const routes = require('./routes');
-const connectDB = require('./config/db');
-
-const app = express();
-const PORT = 3000;
-
-// Kết nối MongoDB
-connectDB();
-
 // Middleware
 app.use(bodyParser.json());
-app.use(cors());
 
 // Routes
 app.use('/', routes);
@@ -40,4 +21,3 @@ app.use('/', routes);
 app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
 });
->>>>>>> origin/tri

@@ -4,6 +4,13 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 const generateToken = require("../utils/jwt");
+const Organization = require("../models/Organization");
+const Volunteer = require("../models/Volunteer");
+const fs = require('fs');
+const path = require('path');
+
+const emailTemplate = fs.readFileSync(path.join('templates', 'emailTemplate.html'), 'utf8');
+const passwordTemplate = fs.readFileSync(path.join('templates', 'passwordTemplate.html'), 'utf8');
 
 const oAuth2Client = new OAuth2Client(
     process.env.CLIENT_ID,
@@ -40,9 +47,15 @@ exports.googleAuth = async (req, res) => {
         const payload = ticket.getPayload();
         const googleId = payload.sub;
 
-        let user = await User.findOne({ googleId });
-
-        if (!user) {
+        let user = await User.findOne({ email: payload.email });
+        if (user) {
+            // If user exists but does not have Google ID, update it
+            if (!user.googleId) {
+                user.googleId = googleId;
+                await user.save();
+            }
+        } else {
+            // Create new user if not found
             const hashedPassword = await bcrypt.hash("123", 10);
             user = new User({
                 googleId,
@@ -129,11 +142,15 @@ const sendVerificationEmail = async (email, token) => {
 exports.register = async (req, res) => {
     try {
         const { fullName, email, password } = req.body;
+        console.log(fullName, email, password);
 
         let user = await User.findOne({ email });
+        console.log(user);
         if (user) {
             return res.status(400).json({ error: "Email already exists" });
         }
+        console.log("aaaa", user);
+        
 
         const hashedPassword = await bcrypt.hash(password, 10);
         user = new User({
@@ -142,15 +159,11 @@ exports.register = async (req, res) => {
             password: hashedPassword,
             is_verified: false, // Fix spelling
         });
+        console.log("uset;", user);
 
         await user.save();
 
-        const verificationToken = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: "24h" }
-        );
-
+        const verificationToken = generateToken(user);
         await sendVerificationEmail(email, verificationToken);
 
         res.status(201).json({ message: "User registered. Check your email for verification." });
@@ -178,7 +191,7 @@ exports.verifyEmail = async (req, res) => {
         user.is_verified = true;
         await user.save();
 
-        res.redirect(`${process.env.FRONT_END_URL}`);
+        res.redirect(`${process.env.FRONT_END_URL}/#/login`);
     } catch (error) {
         console.error("Email Verification Error:", error);
         res.status(500).json({ error: "Invalid or expired token" });
@@ -207,7 +220,17 @@ exports.chooseRole = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
-
+        if(user.role=="Volunteer"){
+            const volunteer = new Volunteer({
+                user: user_find.userId
+            })
+            await volunteer.save()
+        } else if(user.role =="Organization") {
+            const org = new Organization({
+                user: user_find.userId
+            })
+            await org.save()
+        }
         // Generate new token with updated role
         const token = generateToken(user);
 
@@ -227,7 +250,7 @@ exports.chooseRole = async (req, res) => {
 };
 exports.getCurrentUser = async (req,res) => {
     try {
-        const user = await User.findById(req.user.userId).select("-password"); // Exclude password
+        const user = await User.findById(req.user.userId).select("-password");
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -280,5 +303,64 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-// Check Authentication Status
+    exports.forgotPassword = async (req, res) => {
+        try {
+            const { email } = req.body;
+            const user = await User.findOne({ email });
 
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Generate a reset token (expires in 15 minutes)
+            const resetToken = jwt.sign(
+                { userId: user._id },
+                process.env.JWT_SECRET,
+                { expiresIn: "15m" }
+            );
+
+            // Create reset link
+            const resetLink = `${process.env.FRONT_END_URL}/#/reset-password?token=${resetToken}`;
+            const emailHTML = passwordTemplate.replace(/{{action_url}}/g, resetLink);
+
+            // Send email
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: "Password Reset Request",
+                html: emailHTML,
+            };
+
+            await transporter.sendMail(mailOptions);
+            res.status(200).json({ message: "Reset password email sent" });
+
+        } catch (error) {
+            console.error("Forgot Password Error:", error);
+            res.status(500).json({ error: "Failed to process request" });
+        }
+    };
+
+    exports.resetPassword = async (req, res) => {
+        try {
+            const { token, newPassword } = req.body;
+
+            // Verify token
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.userId);
+
+            if (!user) {
+                return res.status(400).json({ error: "Invalid or expired token" });
+            }
+
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            user.password = hashedPassword;
+            await user.save();
+
+            res.json({ message: "Password reset successfully" });
+
+        } catch (error) {
+            console.error("Reset Password Error:", error);
+            res.status(500).json({ error: "Invalid or expired token" });
+        }
+    };
