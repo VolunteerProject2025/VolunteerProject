@@ -1,7 +1,6 @@
 const express = require('express');
 const Project = require('../models/Project');
 const Organization = require("../models/Organization");
-const Project = require("../models/Project");
 const Volunteer = require("../models/Volunteer");
 
 exports.getAllProjects = async (req, res) => {

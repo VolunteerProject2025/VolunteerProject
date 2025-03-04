@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const ProjectSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String },
+    topics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
     startDate: {type: Date, required: true },
     endDate: {type: Date, required: true },
     status: { type: String, enum: ['Pending', 'Approved', 'Completed'], default: 'Pending' },

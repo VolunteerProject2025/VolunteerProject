@@ -1,39 +1,49 @@
-const express = require('express');
-const User = require('../models/User');
-const Organization = require('../models/Organization');
+const Organization = require("../models/Organization");
 
-// exports.getPendingOrganization = async (req, res) => {
-//     try {
-//         const pendings = await Organization.find({ status: "Pending" });
+exports.editOrganization = async (req, res) => {
+    try {
+        const { name, description, contactEmail, address, phone } = req.body;
 
-//         res.json(pendings)
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Internal server error' });
-//     }
-// };
+        // Ensure req.user is populated by the authentication middleware
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: 'Unauthorized - User not found' });
+        }
 
-// exports.getRejectOrganization = async (req, res) => {
-//     try {
-//         const rejects = await Organization.find({ status: "Rejected" });
+        // Find and update organization by authenticated user
+        const updatedOrganization = await Organization.findOneAndUpdate(
+            { user: req.user.id },
+            { name, description, contactEmail, address, phone },
+            { new: true, runValidators: true }
+        );
 
-//         res.json(rejects)
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Internal server error' });
-//     }
-// };
+        if (!updatedOrganization) {
+            return res.status(404).json({ message: 'Organization not found' });
+        }
 
-// exports.getApproveOrganization = async (req, res) => {
-//     try {
-//         const approved = await Organization.find({ status: "Approved" });
+        res.status(200).json({ message: 'Organization updated successfully', organization: updatedOrganization });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+exports.orgProfile = async (req,res) => {
+    console.log("Inside orgProfile...");
+    console.log("User Data:", req.user); 
+    try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: 'Unauthorized - User not found' });
+        }
 
-//         res.json(approved)
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Internal server error' });
-//     }
-// };
+        const organization = await Organization.findOne({ user: req.user.userId });
+        console.log(organization);
+        if (!organization) {
+            return res.status(404).json({ message: 'Organization not found' });
+        }
+
+        res.status(200).json({ organization });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+}
 
 const getOrganizationByStatus = async (status, res) => {
     try {
