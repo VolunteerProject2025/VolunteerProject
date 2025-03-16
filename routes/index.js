@@ -8,6 +8,7 @@ const feedbackRoutes = require('./feedbackRoutes');
 const userRoutes = require('./userRoutes');
 const authRoutes = require('../routes/authRoutes');
 const orgRoutes = require('../routes/orgRoutes');
+const skillRoutes = require('./skillRoutes');
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use('/organizations', organizationRoutes);
 router.use('/projects', projectRoutes);
 router.use('/feedbacks', feedbackRoutes);
 router.use('/users', userRoutes);
+router.use('/skills', skillRoutes);
 
 module.exports = router;

@@ -212,7 +212,18 @@ exports.logout = async (req, res) => {
 // Choose Role
 exports.chooseRole = async (req, res) => {
     try {
+        console.log("Request Body:", req.body);
+        console.log("Decoded User:", req.user);
+
         const { role } = req.body;
+        if (!role) {
+            return res.status(400).json({ error: "Role is required" });
+        }
+
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ error: "Unauthorized - User not found" });
+        }
+
         const user_find = req.user; // Extract user from the decoded JWT
 
         const user = await User.findByIdAndUpdate(user_find.userId, { role }, { new: true });
@@ -222,7 +233,9 @@ exports.chooseRole = async (req, res) => {
         }
         if(user.role=="Volunteer"){
             const volunteer = new Volunteer({
-                user: user_find.userId
+                user: user_find.userId,
+                fullName: user.fullName,
+                email: user.email
             })
             await volunteer.save()
         } else if(user.role =="Organization") {
@@ -241,13 +254,14 @@ exports.chooseRole = async (req, res) => {
             sameSite: "Strict",
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
-
+        console.log("Updated User:", user);
         res.status(200).json({ message: "Role updated successfully", user: { role: user.role } });
     } catch (error) {
         console.error("Choose Role Error:", error);
-        res.status(500).json({ error: "Choose Role failed" });
+        res.status(500).json({ error: "Choose Role failed", details: error.message });
     }
 };
+
 exports.getCurrentUser = async (req,res) => {
     try {
         const user = await User.findById(req.user.userId).select("-password");
