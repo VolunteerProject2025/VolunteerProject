@@ -3,6 +3,7 @@ const UserSchema = new mongoose.Schema({
   googleId: { type: String, index: true, unique: true, sparse: true },
   fullName: String,
   email: { type: String, unique: true, index: true, required: true },
+  img_profile: { type: String, default: null },
   password: String,
   role: { type: String, enum: ["Volunteer", "Guest", "Organization", "Admin"] },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },

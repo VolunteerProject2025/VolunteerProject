@@ -22,8 +22,11 @@ app.use(session({
     cookie: { secure: false } // Set to `true` if using HTTPS
 }));
 // Routes
-const authRoutes = require('../routes/authRoutes');
+// const authRoutes = require('../routes/authRoutes');
+// const orgRoutes = require('../routes/orgRoutes');
 
-app.use('/auth', authRoutes);
+// app.use('/auth', authRoutes);
+// app.use('/org', orgRoutes);
+
 
 module.exports = app;
