@@ -61,21 +61,39 @@ exports.getAllOrganization = async (req, res) => {
     }
 };
 
-exports.getOrganizationDetails = async (req, res) => {
+// exports.getOrganizationDetails = async (req, res) => {
+//     try {
+//         const { organizationId } = req.params;
+
+//         const organization = await Organization.findById(organizationId);
+//         if (!organization) {
+//             return res.status(404).json({ message: 'Organization not found' });
+//         }
+
+//         res.json({ organization });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'Internal server error' });
+//     }
+// };
+
+exports.getOrganizationByUserId = async (req, res) => {
     try {
-        const { organizationId } = req.params;
+        const { userId } = req.params;
+        
 
-        const organization = await Organization.findById(organizationId);
-        if (!organization) {
-            return res.status(404).json({ message: 'Organization not found' });
-        }
-
-        res.json({ organization });
+        // Tìm organization có userId tương ứng
+        const organization = await Organization.findOne({ user: userId });
+        console.log(organization);
+      if (!organization) {
+        return res.status(404).json({ success: false, message: "Organization not found" });
+      }
+  
+      res.status(200).json({ success: true, organization });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
-};
+  };
 
 exports.approveOrganization = async (req, res) => {
     try {
@@ -96,3 +114,25 @@ exports.approveOrganization = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+exports.orgProfile = async (req,res) => {
+    console.log("Inside orgProfile...");
+    console.log("User Data:", req.user); 
+    try {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: 'Unauthorized - User not found' });
+        }
+       
+
+        const organization = await Organization.findOne({ user: req.user.userId });
+        console.log(organization);
+        if (!organization) {
+            return res.status(404).json({ message: 'Organization not found' });
+        }
+
+        res.status(200).json({ organization });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+}
+

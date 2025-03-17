@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 const OrganizationSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
-    name: { type: String, required: true },
+    name: { type: String },
     description: { type: String },
-    contactEmail: { type: String, required: true },
-    address: { type: String, required: true },
-    phone: { type: Number, required: true },
+    contactEmail: { type: String },
+    address: { type: String},
+    phone: { type: Number },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
 });
 

@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const scheduleController = require('../controllers/ScheduleController');
 
-router.post('/', scheduleController.createSchedule);
+router.post('/project/:projectId/schedules', scheduleController.createSchedule);
+
 router.get('/project/:projectId', scheduleController.getSchedules);
 router.get('/:id', scheduleController.getScheduleById);
 router.put('/:id', scheduleController.updateSchedule);

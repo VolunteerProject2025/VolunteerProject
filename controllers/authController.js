@@ -2,8 +2,10 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
+const Organization = require('../models/Organization');
 const nodemailer = require("nodemailer");
 const generateToken = require("../utils/jwt");
+const Volunteer = require('../models/Volunteer');
 
 const oAuth2Client = new OAuth2Client(
     process.env.CLIENT_ID,
@@ -200,12 +202,25 @@ exports.logout = async (req, res) => {
 exports.chooseRole = async (req, res) => {
     try {
         const { role } = req.body;
+        console.log("📥 Received Data:", req.body); // Log dữ liệu nhận được
+
         const user_find = req.user; // Extract user from the decoded JWT
 
         const user = await User.findByIdAndUpdate(user_find.userId, { role }, { new: true });
 
         if (!user) {
             return res.status(404).json({ error: "User not found" });
+        }
+        if(user.role=="Volunteer"){
+            const volunteer = new Volunteer({
+                user: user_find.userId
+            })
+            await volunteer.save()
+        } else if(user.role =="Organization") {
+            const org = new Organization({
+                user: user_find.userId
+            })
+            await org.save()
         }
 
         // Generate new token with updated role
