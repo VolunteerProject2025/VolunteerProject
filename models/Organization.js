@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 const OrganizationSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
-    img_profile: { type: String, default: null },
-
+   
+    org_profile : {type: String},
     name: { type: String, },
     description: { type: String },
     contactEmail: { type: String, },

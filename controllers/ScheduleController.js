@@ -5,13 +5,20 @@ const Project = require('../models/Project');
 // Create a new schedule
 exports.createSchedule = async (req, res) => {
     try {
+        if (!req.body.project) {
+            return res.status(400).json({ message: "Project ID is required" });
+        }
+
         const schedule = new Schedule(req.body);
+        console.log(req.body);
         await schedule.save();
         res.status(201).json(schedule);
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error("Schedule creation error:", error);
+        // res.status(400).json({ message: error.message });
     }
 };
+
 
 // Get all schedules for a project
 exports.getSchedules = async (req, res) => {
@@ -55,3 +62,21 @@ exports.deleteSchedule = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
+
+// // ✅ Hàm lấy danh sách schedule theo projectId
+// exports.getScheduleByProjectId = async (req, res) => {
+//   try {
+//     const { projectId } = req.params; // Lấy projectId từ params
+//     if (!projectId) {
+//       return res.status(400).json({ message: "Project ID is required" });
+//     }
+
+//     const schedules = await Schedule.find({ project: projectId }).sort("date startTime");
+    
+//     res.json({ schedules });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching schedules", error: error.message });
+//   }
+// };

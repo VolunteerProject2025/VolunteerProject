@@ -4,14 +4,16 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 const generateToken = require("../utils/jwt");
-const Organization = require("../models/Organization");
 const Volunteer = require("../models/Volunteer");
 const fs = require('fs');
 const path = require('path');
 
 const emailTemplate = fs.readFileSync(path.join('templates', 'emailTemplate.html'), 'utf8');
 const passwordTemplate = fs.readFileSync(path.join('templates', 'passwordTemplate.html'), 'utf8');
-
+const isStrongPassword = (password) => {
+    const strongPasswordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    return strongPasswordRegex.test(password);
+};
 const oAuth2Client = new OAuth2Client(
     process.env.CLIENT_ID,
     process.env.CLIENT_SECRET,
@@ -144,6 +146,13 @@ exports.register = async (req, res) => {
         const { fullName, email, password } = req.body;
         console.log(fullName, email, password);
 
+        // Check password strength
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({ 
+                error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+            });
+        }
+
         let user = await User.findOne({ email });
         console.log(user);
         if (user) {
@@ -151,13 +160,12 @@ exports.register = async (req, res) => {
         }
         console.log("aaaa", user);
         
-
         const hashedPassword = await bcrypt.hash(password, 10);
         user = new User({
             fullName,
             email,
             password: hashedPassword,
-            is_verified: false, // Fix spelling
+            is_verified: false,
         });
         console.log("uset;", user);
 
@@ -220,16 +228,16 @@ exports.chooseRole = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
+        
         if(user.role=="Volunteer"){
             const volunteer = new Volunteer({
-                user: user_find.userId
+                user: user_find.userId,
+                email: user.email
             })
             await volunteer.save()
         } else if(user.role =="Organization") {
-            const org = new Organization({
-                user: user_find.userId
-            })
-            await org.save()
+            return res.status(200).json({ redirectUrl: `${process.env.FRONT_END_URL}/#/create-organization` });
+
         }
         // Generate new token with updated role
         const token = generateToken(user);
@@ -264,14 +272,24 @@ exports.getCurrentUser = async (req,res) => {
 
 exports.changePassword = async (req, res) => {
     try {
-        // Ensure user is authenticated (assuming middleware extracts userId from the token)
+        // Ensure user is authenticated
         const userId = req.user.userId; 
-        const { oldPassword, newPassword } = req.body;
-        console.log("Request Body:", req.body);
-        console.log("User ID from Token:", userId);
+        const { oldPassword, newPassword, confirmPassword } = req.body;
+
         // Validate input
-        if (!oldPassword || !newPassword) {
-            return res.status(400).json({ message: "Both old and new passwords are required" });
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ message: "All password fields are required" });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: "New passwords do not match" });
+        }
+
+        // Check password strength
+        if (!isStrongPassword(newPassword)) {
+            return res.status(400).json({ 
+                error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+            });
         }
 
         // Find the user in the database
@@ -282,6 +300,7 @@ exports.changePassword = async (req, res) => {
         if (!user.password) {
             return res.status(400).json({ message: "Stored password is missing or invalid" });
         }
+
         // Verify the old password
         const isMatch = await bcrypt.compare(oldPassword, user.password);
         if (!isMatch) {
@@ -342,25 +361,97 @@ exports.changePassword = async (req, res) => {
 
     exports.resetPassword = async (req, res) => {
         try {
-            const { token, newPassword } = req.body;
-
+            const { token, newPassword, confirmPassword } = req.body;
+    
+            // Verify inputs
+            if (newPassword !== confirmPassword) {
+                return res.status(400).json({ error: "Passwords do not match" });
+            }
+    
+            // Check password strength
+            if (!isStrongPassword(newPassword)) {
+                return res.status(400).json({ 
+                    error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+                });
+            }
+    
             // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             const user = await User.findById(decoded.userId);
-
+    
             if (!user) {
                 return res.status(400).json({ error: "Invalid or expired token" });
             }
-
+    
             // Hash new password
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             user.password = hashedPassword;
             await user.save();
-
+    
             res.json({ message: "Password reset successfully" });
-
+    
         } catch (error) {
             console.error("Reset Password Error:", error);
             res.status(500).json({ error: "Invalid or expired token" });
+        }
+    };
+    exports.sendSuccessEmail = async (email, name) => {
+        try {
+            const transporter = nodemailer.createTransport({
+                service: "Gmail",
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
+    
+            const mailOptions = {
+                from: `"VOLUNTEER ACT" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: "Dự án đã được duyệt thành công",
+                html: `
+                    <h2>Xin chào ${name},</h2>
+                    <p>Chúc mừng! Dự án của bạn đã được xét duyệt thành công.</p>
+                    <p>Cảm ơn bạn đã đăng ký!</p>
+                    <br/>
+                    <p><strong>Trân trọng,</strong></p>
+                    <p>Đội ngũ hỗ trợ</p>
+                `
+            };
+    
+            await transporter.sendMail(mailOptions);
+            console.log(`Email xác nhận đã gửi tới: ${email}`);
+        } catch (error) {
+            console.error("Lỗi khi gửi email xác nhận:", error);
+        }
+    };
+    exports.sendRejectEmail = async (email, name) => {
+        try {
+            const transporter = nodemailer.createTransport({
+                service: "Gmail",
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
+    
+            const mailOptions = {
+                from: `"Support Team" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: "Dự án của bạn đã bị từ chối",
+                html: `
+                    <h2>Xin chào ${name},</h2>
+                    <p>Dự án của bạn đã bị từ chối. Bạn có thể gửi mail đến địa chỉ <strong>volunteerconnection.noreply@gmail.com</strong> để có thể biết thêm thông tin.</p>
+                    <p>Cảm ơn bạn !</p>
+                    <br/>
+                    <p><strong>Trân trọng,</strong></p>
+                    <p>Đội ngũ hỗ trợ</p>
+                `
+            };
+    
+            await transporter.sendMail(mailOptions);
+            console.log(`Email xác nhận đã gửi tới: ${email}`);
+        } catch (error) {
+            console.error("Lỗi khi gửi email xác nhận:", error);
         }
     };
