@@ -51,24 +51,30 @@ exports.getVolunteerDetails = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
-
 exports.getCurrentVolunteer = async (req, res) => {
     try {
         const userId = req.user.userId;
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'User ID not found in request' });
+        }
 
         // Populate user và skills
         const volunteer = await Volunteer.findOne({ user: userId })
-            .populate('user')
+            .populate('user', '-password') // Exclude password for security
             .populate('skills', 'name');
 
         if (!volunteer) {
             return res.status(404).json({ message: 'Volunteer profile not found' });
         }
 
-        res.json(volunteer);
+        res.status(200).json(volunteer);
     } catch (error) {
         console.error("❌ Error fetching volunteer profile:", error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ 
+            message: 'Internal server error', 
+            error: error.message 
+        });
     }
 };
 
