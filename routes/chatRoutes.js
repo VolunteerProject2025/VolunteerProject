@@ -4,7 +4,8 @@ const {authenticateToken} = require("../middleware/auth");
 const router = express.Router();
 
 router.post('/',authenticateToken,createChat)
-router.get('/',authenticateToken,findUserChat)
 router.get('/find/:firstId/:secondId',authenticateToken,findChat)
+router.get('/:userId',authenticateToken,findUserChat)   
+
 router.post('/group',authenticateToken,createGroupChat)
 module.exports = router;

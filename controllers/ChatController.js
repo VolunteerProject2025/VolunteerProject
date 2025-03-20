@@ -14,6 +14,7 @@ exports.createGroupChat = async (req, res) => {
         // Convert all IDs to strings to ensure consistency
         const memberIds = members.map(id => String(id));
         
+        // Log the members being added to the group
         console.log("Creating group chat:", { name, members: memberIds });
         
         // Create new group chat
@@ -25,13 +26,16 @@ exports.createGroupChat = async (req, res) => {
         });
         
         const savedChat = await newGroupChat.save();
+        
+        // Log the created chat to verify members were added correctly
+        console.log("Group chat created:", savedChat);
+        
         res.status(201).json(savedChat);
     } catch (error) {
         console.error("Error creating group chat:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
-
 exports.createChat = async (req, res) => {
     try {
         const { firstId, secondId } = req.body;
@@ -73,11 +77,13 @@ exports.findUserChat = async (req,res) => {
     if (!req.user || !req.user.userId) {
         return res.status(401).json({ message: 'Unauthorized - User not found' });
     }
-    const userId = req.user.userId
+    const userId = req.params.userId;
     try {
+        console.log(`Finding chats for user: ${userId}`);
         const chats = await Chat.find({
-            members: {$in: [userId]}
-        })
+            members: { $elemMatch: { $eq: userId } }
+          }).sort({ updatedAt: -1 });
+          console.log('Chat find:' + chats);
         res.status(200).json(chats)
     }catch(error){
         res.status(500).json(error)

@@ -59,15 +59,43 @@ io.on("connection", (socket) => {
         io.emit('getOnlineUsers', onlineUsers);
     });
     
-    // Send message - Fixed typo in recipientId
+    // Send message
     socket.on('sendMessage', (message) => {
-        const user = onlineUsers.find(
-            (user) => user.userId === message.recipientId
-        );
+        // For direct chats, message.recipientId contains a single user ID
+        // For group chats, broadcast to all members in the chat
         
-        if (user) {
-            io.to(user.socketId).emit("getMessage", message);
+        if (message.isGroupChat) {
+            // For group chats, broadcast to all online members except sender
+            const chatMembers = message.members || [];
             
+            chatMembers.forEach(memberId => {
+                // Don't send to the sender
+                if (memberId === message.senderId) return;
+                
+                const user = onlineUsers.find(user => user.userId === memberId);
+                if (user) {
+                    io.to(user.socketId).emit("getMessage", message);
+                    // Send a notification to update the chat list with the latest message
+                    io.to(user.socketId).emit("messageNotification", {
+                        chatId: message.chatId,
+                        message: message
+                    });
+                }
+            });
+        } else {
+            // Original code for direct messages
+            const user = onlineUsers.find(
+                (user) => user.userId === message.recipientId
+            );
+            
+            if (user) {
+                io.to(user.socketId).emit("getMessage", message);
+                // Send a notification to update the chat list with the latest message
+                io.to(user.socketId).emit("messageNotification", {
+                    chatId: message.chatId,
+                    message: message
+                });
+            }
         }
     });
     

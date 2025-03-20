@@ -288,7 +288,7 @@ exports.joinProject = async (req, res) => {
   try {
       const { projectId } = req.params;
       const volunteerId = req.user?.userId; // Lấy ID từ token
-
+      const {message} = req.body
 
 
       if (!volunteerId) {
@@ -325,7 +325,8 @@ exports.joinProject = async (req, res) => {
       const newParticipation = new VolunteerParticipation({
         volunteer: volunteer._id,
         project: projectId,
-        status: "Pending"
+        status: "Pending",
+        message : message
       });
       await Notification.create({
         user: organization.user._id,
