@@ -6,8 +6,7 @@ const router = express.Router();
 router.post('/',authenticateToken,upload.single('profileImage'), OrganizationController.createNewOrganization);
 
 router.get('/org-details',authenticateToken, OrganizationController.orgProfile);
-router.put('/:organizationId/approve',authenticateToken, OrganizationController.approveOrganization);
-
+router.put('/:organizationId/approve', OrganizationController.approveOrganization);
 router.get('/', OrganizationController.getAllOrganization);
 router.get('/pending', OrganizationController.getPendingOrganization);
 

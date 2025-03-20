@@ -1,5 +1,36 @@
 const Chat = require('../models/Chat');
-
+exports.createGroupChat = async (req, res) => {
+    try {
+        const { name, members } = req.body;
+        
+        // Validation
+        if (!name || !members || !Array.isArray(members) || members.length < 3) {
+            console.log("Invalid group chat data:", { body: req.body });
+            return res.status(400).json({ 
+                message: "Group name and at least 3 members (including current user) are required" 
+            });
+        }
+        
+        // Convert all IDs to strings to ensure consistency
+        const memberIds = members.map(id => String(id));
+        
+        console.log("Creating group chat:", { name, members: memberIds });
+        
+        // Create new group chat
+        const newGroupChat = new Chat({
+            isGroupChat: true,
+            name: name,
+            members: memberIds,
+            admin: memberIds[0] // Assuming the first member (current user) is the admin
+        });
+        
+        const savedChat = await newGroupChat.save();
+        res.status(201).json(savedChat);
+    } catch (error) {
+        console.error("Error creating group chat:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};
 
 exports.createChat = async (req, res) => {
     try {

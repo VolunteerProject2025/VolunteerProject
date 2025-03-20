@@ -31,7 +31,7 @@ exports.approveProject = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    const organization = await Organization.findById(project.organization.  _id).populate("user");
+    const organization = await Organization.findById(project.organization._id).populate("user");
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
@@ -45,9 +45,7 @@ exports.approveProject = async (req, res) => {
     sendSuccessEmail(ownerEmail, `Your project "${project.title}" has been approved!`);
 
     // Send real-time notification via Socket.io
-    const io = req.app.get('io');
-    const userSocketMap = req.app.get('userSocketMap');
-    const ownerId = organization.user._id.toString();
+  
     
     // Create notification object
     await Notification.create({
@@ -58,14 +56,6 @@ exports.approveProject = async (req, res) => {
       organizationId: organization._id,
       read: false
     });
-
-    // If user is connected, send real-time notification
-    if (userSocketMap[ownerId]) {
-      io.to(userSocketMap[ownerId]).emit('notification', notification);
-      console.log(`Real-time notification sent to user ${ownerId}`);
-    } else {
-      console.log(`User ${ownerId} not connected, notification will be shown on next login`);
-    }
 
     // You might want to store notifications in the database too
     // This ensures users will see them even if they're offline when the notification is created
@@ -94,7 +84,7 @@ exports.createProject = async (req, res) => {
           title,
           description,
           location,
-          categories,
+categories,
           image: imagePath, // Lưu đường dẫn ảnh
           startDate,
           endDate,
@@ -125,7 +115,7 @@ exports.getAllProjects = async (req, res) => {
   try {
     await Organization.find();
     await Volunteer.find();
-    const projects = await Project.find()
+    const projects = await Project.find({status: 'Approved'})
       .populate("organization", "name email") // Populate organization info
       .populate("volunteer", "fullName email" ); // Populate volunteer info
 
@@ -220,9 +210,6 @@ exports.updateProject = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-// @desc Delete a project by ID
-// @route DELETE /projects/:id
 exports.deleteProject = async (req, res) => {
   try {
     const deletedProject = await Project.findByIdAndDelete(req.params.id);
@@ -236,7 +223,6 @@ exports.deleteProject = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 exports.getProjectByOrgId = async (req, res) => {
   try {

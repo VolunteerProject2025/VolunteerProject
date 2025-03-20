@@ -25,7 +25,7 @@ const notificationSchema = new mongoose.Schema({
     volunteerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+     
     },
     read: {
       type: Boolean,

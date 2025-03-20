@@ -4,6 +4,7 @@ const User = require('../models/User');
 const VolunteerParticipation = require('../models/VolunteerParticipation');
 const Certificate = require('../models/Certificate');
 const Feedback = require('../models/Feedback');
+const cloudinary = require('../config/cloudiary');
 
 //Lấy thông tin chi tiết của một tình nguyện viên
 exports.getVolunteerDetails = async (req, res) => {
@@ -52,7 +53,7 @@ exports.getVolunteerDetails = async (req, res) => {
     }
 };
 
-exports.getCurrentVolunteer = async (req, res) => {
+exports.    getCurrentVolunteer = async (req, res) => {
     try {
         const userId = req.user.userId;
         
@@ -95,32 +96,100 @@ exports.getAllVolunteer = async (req, res) => {
     }
 };
 
+// exports.updateProfile = async (req, res) => {
+//     try {
+//         const userId = req.user.userId; // Lấy ID user từ token
+
+//         // Tìm volunteer theo userId
+//         let volunteer = await Volunteer.findOne({ user: userId }).populate('user');
+//         if (!volunteer) {
+//             return res.status(404).json({ success: false, message: 'Volunteer profile not found' });
+//         }
+
+//         // Cập nhật thông tin volunteer
+//         const { fullName, phone, dateOfBirth, gender, bio, location, skills } = req.body;
+//         if (fullName) {
+//             volunteer.fullName = fullName;
+//             await User.findByIdAndUpdate(userId, { fullName }); // ✅ Cập nhật tên trong User model
+//         }
+//         if (phone) volunteer.phone = phone;
+//         if (dateOfBirth) volunteer.dateOfBirth = dateOfBirth;
+//         if (gender) volunteer.gender = gender;
+//         if (bio) volunteer.bio = bio;
+//         if (location) volunteer.location = location;
+//         if (skills) volunteer.skills = skills;
+
+//         await volunteer.save();
+
+//         res.status(200).json({ success: true, message: 'Profile updated successfully', volunteer });
+//     } catch (error) {
+//         console.error("❌ Error updating volunteer profile:", error);
+//         res.status(500).json({ success: false, message: 'Internal server error' });
+//     }
+// };
+
 exports.updateProfile = async (req, res) => {
     try {
-        const userId = req.user.userId; // Lấy ID user từ token
+        const userId = req.user.userId; // Get user ID from token
 
-        // Tìm volunteer theo userId
+        // Find volunteer by userId
         let volunteer = await Volunteer.findOne({ user: userId }).populate('user');
         if (!volunteer) {
             return res.status(404).json({ success: false, message: 'Volunteer profile not found' });
         }
-
-        // Cập nhật thông tin volunteer
-        const { fullName, phone, dateOfBirth, gender, bio, location, skills } = req.body;
+        let user = await User.findById({ _id : userId })
+        // Update volunteer information
+        const { fullName, phone, dateOfBirth, gender, bio, location } = req.body;
+        
+        // Handle skills which is sent as a JSON string
+        let skills = [];
+        if (req.body.skills) {
+            try {
+                skills = JSON.parse(req.body.skills);
+            } catch (err) {
+                console.error("Error parsing skills:", err);
+            }
+        }
+        
+        // Update basic fields
         if (fullName) {
             volunteer.fullName = fullName;
-            await User.findByIdAndUpdate(userId, { fullName }); // ✅ Cập nhật tên trong User model
+            await User.findByIdAndUpdate(userId, { fullName }); // Update name in User model
         }
         if (phone) volunteer.phone = phone;
         if (dateOfBirth) volunteer.dateOfBirth = dateOfBirth;
         if (gender) volunteer.gender = gender;
         if (bio) volunteer.bio = bio;
         if (location) volunteer.location = location;
-        if (skills) volunteer.skills = skills;
+        if (skills.length > 0) volunteer.skills = skills;
+        // Handle profile image upload
+        if (req.file) {
+            // If there's an existing profile image, delete it from Cloudinary first
+            if (user.img_profile) {
+                // Extract the public_id from the URL
+                const urlParts = user.img_profile.split('/');
+                const publicIdWithExtension = urlParts[urlParts.length - 1];
+                const publicId = publicIdWithExtension.split('.')[0];
+                const folderPath = 'user_profiles';
+                
+                // Delete the existing image
+                await cloudinary.uploader.destroy(`${folderPath}/${publicId}`);
+            }
+            
+            // Upload the new image
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'user_profiles',
+            });
+            user.img_profile = result.secure_url;
+        }
 
         await volunteer.save();
-
-        res.status(200).json({ success: true, message: 'Profile updated successfully', volunteer });
+        await user.save();
+        res.status(200).json({ 
+            success: true, 
+            message: 'Profile updated successfully', 
+            volunteer 
+        });
     } catch (error) {
         console.error("❌ Error updating volunteer profile:", error);
         res.status(500).json({ success: false, message: 'Internal server error' });

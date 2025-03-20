@@ -7,6 +7,7 @@ const generateToken = require("../utils/jwt");
 const Volunteer = require("../models/Volunteer");
 const fs = require('fs');
 const path = require('path');
+const Organization = require("../models/Organization");
 
 const emailTemplate = fs.readFileSync(path.join('templates', 'emailTemplate.html'), 'utf8');
 const passwordTemplate = fs.readFileSync(path.join('templates', 'passwordTemplate.html'), 'utf8');
@@ -32,9 +33,12 @@ const transporter = nodemailer.createTransport({
 exports.googleAuth = async (req, res) => {
     try {
         const { code } = req.body;
+
         if (!code) {
             return res.status(400).json({ error: "Missing authorization code" });
         }
+
+      
 
         const { tokens } = await oAuth2Client.getToken(code);
         if (!tokens.id_token || typeof tokens.id_token !== "string") {
@@ -56,6 +60,8 @@ exports.googleAuth = async (req, res) => {
                 user.googleId = googleId;
                 await user.save();
             }
+
+                    
         } else {
             // Create new user if not found
             const hashedPassword = await bcrypt.hash("123", 10);
@@ -64,11 +70,12 @@ exports.googleAuth = async (req, res) => {
                 fullName: payload.name,
                 email: payload.email,
                 is_verified: true,
-                password: hashedPassword
+                password: hashedPassword,
+                role: 'Guest' // Set the selected role for new users
             });
             await user.save();
         }
-
+        const organization = await Organization.findOne({user :user._id})
         const token = generateToken(user);
         res.cookie("token", token, {
             httpOnly: true,
@@ -77,7 +84,7 @@ exports.googleAuth = async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000,
         });
 
-        res.json({ message: "Login successful", user });
+        res.json({ message: "Login successful", user,organization });
     } catch (error) {
         console.error("Google Auth Error:", error);
         res.status(500).json({ error: "Authentication failed" });
@@ -85,38 +92,39 @@ exports.googleAuth = async (req, res) => {
 };
 
 // Normal Email/Password Login
-exports.normalLogin = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
+    exports.normalLogin = async (req, res) => {
+        try {
+            const { email, password } = req.body;
+            const user = await User.findOne({ email });
 
-        if (!user) {
-            return res.status(401).json({ error: "Invalid email" });
+            if (!user) {
+                return res.status(401).json({ error: "Invalid email" });
+            }
+
+            if (!user.is_verified) {
+                return res.status(403).json({ message: "Please verify your email before logging in." });
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(401).json({ error: "Invalid password" });
+            }
+            const organization = await Organization.findOne({user :user._id})
+
+            const token = generateToken(user);
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "Strict",
+                maxAge: 24 * 60 * 60 * 1000,
+            });
+
+            res.json({ message: "Login successful", user,organization });
+        } catch (error) {
+            console.error("Login Error:", error);
+            res.status(500).json({ error: "Authentication failed" });
         }
-
-        if (!user.is_verified) {
-            return res.status(403).json({ message: "Please verify your email before logging in." });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ error: "Invalid password" });
-        }
-
-        const token = generateToken(user);
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "Strict",
-            maxAge: 24 * 60 * 60 * 1000,
-        });
-
-        res.json({ message: "Login successful", user });
-    } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ error: "Authentication failed" });
-    }
-};
+    };
 
 // Send Email Verification
 const sendVerificationEmail = async (email, token) => {
@@ -139,47 +147,100 @@ const sendVerificationEmail = async (email, token) => {
     }
 };
 
-
-// User Registration
 exports.register = async (req, res) => {
     try {
-        const { fullName, email, password } = req.body;
-        console.log(fullName, email, password);
+        const { fullName, email, password, role } = req.body;
 
-        // Check password strength
+        // Validate required fields
+        if (!fullName || !email || !password || !role) {
+            return res.status(400).json({ error: "All fields are required" });
+        }
         if (!isStrongPassword(password)) {
             return res.status(400).json({ 
                 error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
             });
         }
-
-        let user = await User.findOne({ email });
-        console.log(user);
-        if (user) {
-            return res.status(400).json({ error: "Email already exists" });
+        // Validate role
+        if (!["Volunteer", "Organization"].includes(role)) {
+            return res.status(400).json({ error: "Invalid role selected" });
         }
-        console.log("aaaa", user);
-        
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ error: "Email already registered" });
+        }
+
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
-        user = new User({
+
+        // Create verification token
+
+        // Create new user
+        const newUser = new User({
             fullName,
             email,
             password: hashedPassword,
-            is_verified: false,
+            role, // Set the selected role
+            is_verified: false
         });
-        console.log("uset;", user);
 
-        await user.save();
+        await newUser.save();
 
-        const verificationToken = generateToken(user);
-        await sendVerificationEmail(email, verificationToken);
+        // Save verification token
+       
 
-        res.status(201).json({ message: "User registered. Check your email for verification." });
+
+        // Send verification email
+        const verificationToken = generateToken(newUser);
+        await sendVerificationEmail(email, verificationToken);;
+
+        res.status(201).json({ message: "Registration successful. Please check your email to verify your account." });
     } catch (error) {
         console.error("Registration Error:", error);
-        res.status(500).json({ error: "Registration failed" });
+        res.status(500).json({ error: "Registration failed. Please try again." });
     }
 };
+// User Registration
+// exports.register = async (req, res) => {
+//     try {
+//         const { fullName, email, password } = req.body;
+//         console.log(fullName, email, password);
+
+//         // Check password strength
+//         if (!isStrongPassword(password)) {
+//             return res.status(400).json({ 
+//                 error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+//             });
+//         }
+
+//         let user = await User.findOne({ email });
+//         console.log(user);
+//         if (user) {
+//             return res.status(400).json({ error: "Email already exists" });
+//         }
+//         console.log("aaaa", user);
+        
+//         const hashedPassword = await bcrypt.hash(password, 10);
+//         user = new User({
+//             fullName,
+//             email,
+//             password: hashedPassword,
+//             is_verified: false,
+//         });
+//         console.log("uset;", user);
+
+//         await user.save();
+
+//         const verificationToken = generateToken(user);
+//         await sendVerificationEmail(email, verificationToken);
+
+//         res.status(201).json({ message: "User registered. Check your email for verification." });
+//     } catch (error) {
+//         console.error("Registration Error:", error);
+//         res.status(500).json({ error: "Registration failed" });
+//     }
+// };
 
 // Email Verification Endpoint
 exports.verifyEmail = async (req, res) => {
@@ -228,19 +289,21 @@ exports.chooseRole = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
-        
+        const token = generateToken(user);
+
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "Strict",
+            maxAge: 24 * 60 * 60 * 1000, // 1 day
+        });
         if(user.role=="Volunteer"){
             const volunteer = new Volunteer({
                 user: user_find.userId,
                 email: user.email
             })
             await volunteer.save()
-        } else if(user.role =="Organization") {
-            return res.status(200).json({ redirectUrl: `${process.env.FRONT_END_URL}/#/create-organization` });
-
-        }
-        // Generate new token with updated role
-        const token = generateToken(user);
+        } 
 
         // Store token in secure cookies
         res.cookie("token", token, {
@@ -250,7 +313,7 @@ exports.chooseRole = async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
 
-        res.status(200).json({ message: "Role updated successfully", user: { role: user.role } });
+        res.status(200).json({ message: "Role updated successfully" });
     } catch (error) {
         console.error("Choose Role Error:", error);
         res.status(500).json({ error: "Choose Role failed" });

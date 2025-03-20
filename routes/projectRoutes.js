@@ -1,12 +1,16 @@
 const express = require('express');
 const ProjectController = require('../controllers/ProjectController');
+const VolunteerParticipationController = require('../controllers/VolunteerParticipationController');
+
 const {authenticateToken} = require("../middleware/auth");
 
 const router = express.Router();
 
 router.get('/', ProjectController.getAllProjects);
 router.get('/pending', ProjectController.getPendingProjects);
-
+router.get('/:projectId/pending-volunteer', VolunteerParticipationController.getPendingVolunteerParticipation);
+router.put('/:volunteerId/:projectId/approveVolunteer', VolunteerParticipationController.approveVolunteerToProject);
+router.put('/:volunteerId/:projectId/rejectVolunteer', VolunteerParticipationController.rejectVolunteerToProject);
 router.post('/:projectId/join', authenticateToken, ProjectController.joinProject);
 router.get('/:projectId/volunteers', ProjectController.getProjectVolunteers);
 router.get("/:projectId/participation-status", authenticateToken, ProjectController.getUserParticipationStatus);

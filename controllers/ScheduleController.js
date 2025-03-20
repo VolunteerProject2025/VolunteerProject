@@ -10,7 +10,7 @@ exports.createSchedule = async (req, res) => {
         }
 
         const schedule = new Schedule(req.body);
-        console.log(req.body);
+        console.log(req.body);  
         await schedule.save();
         res.status(201).json(schedule);
     } catch (error) {
