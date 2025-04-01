@@ -3,7 +3,7 @@ const Feedback = require('../models/Feedback');
 
 exports.getAllFeedback = async (req, res) => {
     try {
-        const feedbacks = await Feedback.find();
+        const feedbacks = await Feedback.find().populate('user').populate('organization').populate('project');
 
         res.json(feedbacks)
     } catch (error) {
