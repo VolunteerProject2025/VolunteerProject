@@ -1,4 +1,3 @@
-const express = require('express');
 const Project = require('../models/Project');
 const User = require('../models/User');
 
@@ -8,6 +7,56 @@ const VolunteerParticipation = require("../models/VolunteerParticipation")
 const { sendSuccessEmail, sendRejectEmail } = require('./authController');
 const Volunteer = require("../models/Volunteer");
 const mongoose = require('mongoose');
+
+exports.getCompletedProjects = async (req, res) => {
+  try {
+      // Get the logged-in user's ID from the request (assuming auth middleware sets this)
+      const userId = req.user.userId;
+
+      // Find the volunteer profile associated with this user
+      const volunteer = await Volunteer.findOne({ user: userId });
+      
+      if (!volunteer) {
+          return res.status(404).json({ 
+              success: false, 
+              message: 'Volunteer profile not found for this user' 
+          });
+      }
+
+      // Find all completed participations for this volunteer
+      const completedParticipations = await VolunteerParticipation.find({
+        volunteer: volunteer._id,
+        status: 'Completed'
+    })
+    .populate({
+        path: 'project',
+        match: { status: 'Completed' }, // Only include completed projects
+        populate: {
+            path: 'organization',
+            select: 'name img_profile description' // Populate organization details
+        }
+    });
+      // Filter out any null projects (in case a project was deleted or isn't completed)
+      const completedProjects = completedParticipations
+      .filter(participation => participation.project)
+      .map(participation => ({
+          ...participation.project.toObject(),
+          volunteerFullName: volunteer.fullName // Attach the volunteer's full name
+      }));  
+      return res.status(200).json({
+        success: true,
+        count: completedProjects.length,
+        data: completedProjects
+    });
+  } catch (error) {
+      console.error('Error fetching completed projects:', error);
+      return res.status(500).json({
+          success: false,
+          message: 'Server error',
+          error: error.message
+      });
+  }
+};
 exports.getPendingProjects = async (req, res) => {
   try {
     await Organization.find();
@@ -169,14 +218,81 @@ exports.getProjectById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+exports.updateProjectCompleted = async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+   
+    console.log(updateData);
+    
+    // Remove volunteer field from update data to prevent CastError
+    // Only let the specialized joinProject endpoint manage volunteers
+    delete updateData.volunteer;
+    
+    // Handle organization ObjectId conversion
+    if (updateData.organization) {
+      try {
+        // Convert string to ObjectId or leave as is if already an ObjectId
+        if (typeof updateData.organization === 'string' && updateData.organization.trim() !== '') {
+          updateData.organization = new mongoose.Types.ObjectId(updateData.organization);
+        } else {
+          // Remove empty strings or invalid values
+          delete updateData.organization;
+        }
+      } catch (err) {
+        // If conversion fails, just delete the field to prevent errors
+        delete updateData.organization;
+        console.log("Invalid organization ID, removing from update data");
+      }
+    }
 
+    // Remove any empty strings or null values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === '' || updateData[key] === null || updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    // If there's an image file, add it to update data
+    if (req.file) {
+      updateData.image = `/uploads/${req.file.filename}`;
+    }
+
+    console.log("Final update data:", updateData);
+
+    const updatedProject = await Project.findByIdAndUpdate(req.params.id,  { $set: updateData }, {
+      new: true,
+      runValidators: true,
+    });
+    
+    if (!updatedProject) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+    const admins = await User.find({ role: 'Admin' });
+    
+    // Create notifications for all admins
+    if (admins.length > 0) {
+      const notifications = admins.map(admin => ({
+        user: admin._id,
+        type: 'PROJECT_MODIFY',
+        message: `A project "${updatedProject.title}" has been updated!`,
+        read: false
+      }));
+      await Notification.insertMany(notifications);
+    }
+    res.status(200).json({ success: true, data: updatedProject });
+  } catch (error) {
+    console.error("Error updating project:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 // @desc Update a project by ID
 // @route PUT /projects/:id
 exports.updateProject = async (req, res) => {
   try {
     const updateData = { ...req.body };
    
-
+    console.log(updateData);
+    
     // Remove volunteer field from update data to prevent CastError
     // Only let the specialized joinProject endpoint manage volunteers
     delete updateData.volunteer;
