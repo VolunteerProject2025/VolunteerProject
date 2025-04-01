@@ -5,7 +5,24 @@ const isValidPhoneNumber = (phone) => {
     const phoneRegex = /^0\d{9}$/; 
     return phoneRegex.test(phone);
 };
+exports.getOrganizationDetailsByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
 
+        const organization = await Organization.findOne({ user: userId })
+            .populate('user')
+        ;
+
+        if (!organization) {
+            return res.status(404).json({ message: 'Organization not found' });
+        }
+
+        res.json({ organization });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
 exports.createNewOrganization = async (req, res) => {
     try {
         if (!req.user || !req.user.userId) {

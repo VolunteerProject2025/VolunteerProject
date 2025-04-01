@@ -13,7 +13,7 @@ router.get('/me', authenticateToken, VolunteerController.getCurrentVolunteer);
 
 // Lấy thông tin chi tiết của một tình nguyện viên theo ID
 router.get('/:volunteerId', VolunteerController.getVolunteerDetails);
-
+router.get('/user/:userId', VolunteerController.getVolunteerDetailsByUserId);
 // Cập nhật hồ sơ tình nguyện viên (yêu cầu xác thực)
 router.put('/me', authenticateToken,upload.single('profileImage'), VolunteerController.updateProfile);
 

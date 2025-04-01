@@ -127,7 +127,53 @@ exports.getAllVolunteer = async (req, res) => {
 //         res.status(500).json({ success: false, message: 'Internal server error' });
 //     }
 // };
+exports.getVolunteerDetailsByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
 
+        // ✅ Tìm thông tin tình nguyện viên
+        const volunteer = await Volunteer.findOne({ user: userId })
+            .populate('user')
+            .populate('skills');
+        if (!volunteer) {
+            return res.status(404).json({ message: 'Volunteer not found' });
+        }
+
+        //Lấy danh sách dự án đã tham gia
+        const participations = await VolunteerParticipation.find({ volunteer: volunteer._id })
+            .populate({
+                path: 'project',
+                select: 'title description startDate endDate'
+            });
+
+        //Lấy danh sách chứng chỉ của tình nguyện viên
+        const certificates = await Certificate.find({ volunteer: volunteer._id })
+            .populate({
+                path: 'project',
+                select: 'title'
+            });
+
+        //Lấy danh sách feedbacks của tình nguyện viên
+        const feedbacks = await Feedback.find({ user: volunteer.user._id })
+            .populate({
+                path: 'project',
+                select: 'title'
+            });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                volunteer,
+                participations,
+                certificates,
+                feedbacks
+            }
+        });
+    } catch (error) {
+        console.error("❌ Error fetching volunteer details:", error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
 exports.updateProfile = async (req, res) => {
     try {
         const userId = req.user.userId; // Get user ID from token
