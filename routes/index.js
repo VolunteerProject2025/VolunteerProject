@@ -13,13 +13,13 @@ const messageRoutes = require('../routes/messageRoutes');
 const skillRoutes = require('./skillRoutes');
 const router = express.Router();
 const upload = require('../middleware/upload');
-
+const { getDashboard } = require("../controllers/AdminDashboard")
 // Định tuyến các route
 router.use('/auth', authRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/chat', chatRoutes);
 router.use('/message', messageRoutes);
-
+router.get('/admin', getDashboard);
 router.use('/volunteers', volunteerRoutes);
 router.use('/post', postRoutes);
 router.use('/schedules', scheduleRoutes);

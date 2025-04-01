@@ -9,5 +9,7 @@ router.put('/:id', postController.upload.single('image'), postController.updateP
 router.delete('/:id', postController.deletePost);
 router.post('/:id/like', postController.likePost); // Route cho like
 router.post('/:id/comment', postController.addComment); // Route cho comment
+router.put('/:id/comment/:commentId', postController.editComment); // Thêm route chỉnh sửa bình luận
+router.delete('/:id/comment/:commentId', postController.deleteComment); // Thêm route xóa bình luận
 
 module.exports = router;

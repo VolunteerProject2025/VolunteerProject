@@ -1,5 +1,7 @@
 const express = require('express');
 const Project = require('../models/Project');
+const User = require('../models/User');
+
 const Organization = require("../models/Organization");
 const Notification = require("../models/Notification");
 const VolunteerParticipation = require("../models/VolunteerParticipation")
@@ -12,7 +14,8 @@ exports.getPendingProjects = async (req, res) => {
     await Volunteer.find();
     const projects = await Project.find({status: 'Pending'})
       .populate("organization", "name email")
-      .populate("volunteer", "fullName email" ); 
+      .populate("volunteer", "fullName email" )
+      .sort({ updatedAt: -1 });
     console.log(projects);
     
 
@@ -94,7 +97,18 @@ categories,
           volunteerNumber
       });
       console.log(newProject);
-
+      const admins = await User.find({ role: 'Admin' });
+    
+    // Create notifications for all admins
+    if (admins.length > 0) {
+      const notifications = admins.map(admin => ({
+        user: admin._id,
+        type: 'PROJECT_CREATED',
+        message: `A project "${newProject.title}" has been created!`,
+        read: false
+      }));
+      await Notification.insertMany(notifications);
+    }
       // Lưu vào database
       await newProject.save();
 
@@ -106,6 +120,8 @@ categories,
     });
     console.log("projectid: "+ newProject._id);
   } catch (error) {
+    console.log("error: "+ error);
+
       res.status(500).json({ message: "Error creating project", error: error.message });
   }
 };
@@ -117,7 +133,8 @@ exports.getAllProjects = async (req, res) => {
     await Volunteer.find();
     const projects = await Project.find({status: 'Approved'})
       .populate("organization", "name email") // Populate organization info
-      .populate("volunteer", "fullName email" ); // Populate volunteer info
+      .populate("volunteer", "fullName email" ) // Populate volunteer info
+      .sort({ createdAt: -1 }); 
 
     res.status(200).json( projects );
   } catch (error) {
@@ -195,7 +212,7 @@ exports.updateProject = async (req, res) => {
 
     console.log("Final update data:", updateData);
 
-    const updatedProject = await Project.findByIdAndUpdate(req.params.id, updateData, {
+    const updatedProject = await Project.findByIdAndUpdate(req.params.id,  { $set: updateData, status: 'Pending' }, {
       new: true,
       runValidators: true,
     });
@@ -203,7 +220,18 @@ exports.updateProject = async (req, res) => {
     if (!updatedProject) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
-
+    const admins = await User.find({ role: 'Admin' });
+    
+    // Create notifications for all admins
+    if (admins.length > 0) {
+      const notifications = admins.map(admin => ({
+        user: admin._id,
+        type: 'PROJECT_MODIFY',
+        message: `A project "${updatedProject.title}" has been updated!`,
+        read: false
+      }));
+      await Notification.insertMany(notifications);
+    }
     res.status(200).json({ success: true, data: updatedProject });
   } catch (error) {
     console.error("Error updating project:", error);

@@ -12,7 +12,7 @@ const ProjectSchema = new mongoose.Schema({
     organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     volunteer: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Volunteer' }],
     volunteerNumber: { type: Number, default: 0, min: 0 },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Project', ProjectSchema);
 

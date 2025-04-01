@@ -211,5 +211,64 @@ exports.addComment = async (req, res) => {
     }
 };
 
+exports.editComment = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: 'Post not found' });
+
+        const commentId = req.params.commentId;
+        const comment = post.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+        const userId = req.body.userId || comment.author.toString();
+        if (comment.author.toString() !== userId) {
+            return res.status(403).json({ message: 'You can only edit your own comments' });
+        }
+
+        comment.content = req.body.content;
+        comment.relativeTime = moment().fromNow();
+        await post.save();
+
+        const populatedPost = await Post.findById(post._id)
+            .populate('organization')
+            .populate('author')
+            .populate('comments.author');
+        res.status(200).json(populatedPost);
+    } catch (error) {
+        console.error('Error editing comment:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.deleteComment = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ message: 'Post not found' });
+
+        const commentId = req.params.commentId;
+        const comment = post.comments.id(commentId);
+        if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+        const userId = req.body.userId || comment.author.toString();
+        const userRole = req.body.role || 'Guest'; // Lấy role từ request (nếu có)
+
+        if (comment.author.toString() !== userId && userRole !== 'Organization') {
+            return res.status(403).json({ message: 'You can only delete your own comments or if you are an Organization' });
+        }
+
+        post.comments = post.comments.filter(c => c._id.toString() !== commentId);
+        await post.save();
+
+        const populatedPost = await Post.findById(post._id)
+            .populate('organization')
+            .populate('author')
+            .populate('comments.author');
+        res.status(200).json(populatedPost);
+    } catch (error) {
+        console.error('Error deleting comment:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // Export middleware upload để dùng trong routes
 module.exports.upload = upload;
