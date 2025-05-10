@@ -4,7 +4,16 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 const generateToken = require("../utils/jwt");
+const Volunteer = require("../models/Volunteer");
+const fs = require('fs');
+const path = require('path');
 
+const emailTemplate = fs.readFileSync(path.join('templates', 'emailTemplate.html'), 'utf8');
+const passwordTemplate = fs.readFileSync(path.join('templates', 'passwordTemplate.html'), 'utf8');
+const isStrongPassword = (password) => {
+    const strongPasswordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    return strongPasswordRegex.test(password);
+};
 const oAuth2Client = new OAuth2Client(
     process.env.CLIENT_ID,
     process.env.CLIENT_SECRET,
@@ -40,9 +49,15 @@ exports.googleAuth = async (req, res) => {
         const payload = ticket.getPayload();
         const googleId = payload.sub;
 
-        let user = await User.findOne({ googleId });
-
-        if (!user) {
+        let user = await User.findOne({ email: payload.email });
+        if (user) {
+            // If user exists but does not have Google ID, update it
+            if (!user.googleId) {
+                user.googleId = googleId;
+                await user.save();
+            }
+        } else {
+            // Create new user if not found
             const hashedPassword = await bcrypt.hash("123", 10);
             user = new User({
                 googleId,
@@ -129,28 +144,34 @@ const sendVerificationEmail = async (email, token) => {
 exports.register = async (req, res) => {
     try {
         const { fullName, email, password } = req.body;
+        console.log(fullName, email, password);
+
+        // Check password strength
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({ 
+                error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+            });
+        }
 
         let user = await User.findOne({ email });
+        console.log(user);
         if (user) {
             return res.status(400).json({ error: "Email already exists" });
         }
-
+        console.log("aaaa", user);
+        
         const hashedPassword = await bcrypt.hash(password, 10);
         user = new User({
             fullName,
             email,
             password: hashedPassword,
-            is_verified: false, // Fix spelling
+            is_verified: false,
         });
+        console.log("uset;", user);
 
         await user.save();
 
-        const verificationToken = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET,
-            { expiresIn: "24h" }
-        );
-
+        const verificationToken = generateToken(user);
         await sendVerificationEmail(email, verificationToken);
 
         res.status(201).json({ message: "User registered. Check your email for verification." });
@@ -178,7 +199,7 @@ exports.verifyEmail = async (req, res) => {
         user.is_verified = true;
         await user.save();
 
-        res.redirect(`${process.env.FRONT_END_URL}`);
+        res.redirect(`${process.env.FRONT_END_URL}/#/login`);
     } catch (error) {
         console.error("Email Verification Error:", error);
         res.status(500).json({ error: "Invalid or expired token" });
@@ -199,7 +220,18 @@ exports.logout = async (req, res) => {
 // Choose Role
 exports.chooseRole = async (req, res) => {
     try {
+        console.log("Request Body:", req.body);
+        console.log("Decoded User:", req.user);
+
         const { role } = req.body;
+        if (!role) {
+            return res.status(400).json({ error: "Role is required" });
+        }
+
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ error: "Unauthorized - User not found" });
+        }
+
         const user_find = req.user; // Extract user from the decoded JWT
 
         const user = await User.findByIdAndUpdate(user_find.userId, { role }, { new: true });
@@ -207,7 +239,17 @@ exports.chooseRole = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
+        
+        if(user.role=="Volunteer"){
+            const volunteer = new Volunteer({
+                user: user_find.userId,
+                email: user.email
+            })
+            await volunteer.save()
+        } else if(user.role =="Organization") {
+            return res.status(200).json({ redirectUrl: `${process.env.FRONT_END_URL}/#/create-organization` });
 
+        }
         // Generate new token with updated role
         const token = generateToken(user);
 
@@ -218,16 +260,17 @@ exports.chooseRole = async (req, res) => {
             sameSite: "Strict",
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
-
+        console.log("Updated User:", user);
         res.status(200).json({ message: "Role updated successfully", user: { role: user.role } });
     } catch (error) {
         console.error("Choose Role Error:", error);
-        res.status(500).json({ error: "Choose Role failed" });
+        res.status(500).json({ error: "Choose Role failed", details: error.message });
     }
 };
+
 exports.getCurrentUser = async (req,res) => {
     try {
-        const user = await User.findById(req.user.userId).select("-password"); // Exclude password
+        const user = await User.findById(req.user.userId).select("-password");
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -241,14 +284,24 @@ exports.getCurrentUser = async (req,res) => {
 
 exports.changePassword = async (req, res) => {
     try {
-        // Ensure user is authenticated (assuming middleware extracts userId from the token)
+        // Ensure user is authenticated
         const userId = req.user.userId; 
-        const { oldPassword, newPassword } = req.body;
-        console.log("Request Body:", req.body);
-        console.log("User ID from Token:", userId);
+        const { oldPassword, newPassword, confirmPassword } = req.body;
+
         // Validate input
-        if (!oldPassword || !newPassword) {
-            return res.status(400).json({ message: "Both old and new passwords are required" });
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ message: "All password fields are required" });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: "New passwords do not match" });
+        }
+
+        // Check password strength
+        if (!isStrongPassword(newPassword)) {
+            return res.status(400).json({ 
+                error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+            });
         }
 
         // Find the user in the database
@@ -259,6 +312,7 @@ exports.changePassword = async (req, res) => {
         if (!user.password) {
             return res.status(400).json({ message: "Stored password is missing or invalid" });
         }
+
         // Verify the old password
         const isMatch = await bcrypt.compare(oldPassword, user.password);
         if (!isMatch) {
@@ -280,5 +334,136 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-// Check Authentication Status
+    exports.forgotPassword = async (req, res) => {
+        try {
+            const { email } = req.body;
+            const user = await User.findOne({ email });
 
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Generate a reset token (expires in 15 minutes)
+            const resetToken = jwt.sign(
+                { userId: user._id },
+                process.env.JWT_SECRET,
+                { expiresIn: "15m" }
+            );
+
+            // Create reset link
+            const resetLink = `${process.env.FRONT_END_URL}/#/reset-password?token=${resetToken}`;
+            const emailHTML = passwordTemplate.replace(/{{action_url}}/g, resetLink);
+
+            // Send email
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: "Password Reset Request",
+                html: emailHTML,
+            };
+
+            await transporter.sendMail(mailOptions);
+            res.status(200).json({ message: "Reset password email sent" });
+
+        } catch (error) {
+            console.error("Forgot Password Error:", error);
+            res.status(500).json({ error: "Failed to process request" });
+        }
+    };
+
+    exports.resetPassword = async (req, res) => {
+        try {
+            const { token, newPassword, confirmPassword } = req.body;
+    
+            // Verify inputs
+            if (newPassword !== confirmPassword) {
+                return res.status(400).json({ error: "Passwords do not match" });
+            }
+    
+            // Check password strength
+            if (!isStrongPassword(newPassword)) {
+                return res.status(400).json({ 
+                    error: "Password must be at least 8 characters long and contain at least 1 uppercase letter and 1 special character (!@#$%^&*)" 
+                });
+            }
+    
+            // Verify token
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.userId);
+    
+            if (!user) {
+                return res.status(400).json({ error: "Invalid or expired token" });
+            }
+    
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            user.password = hashedPassword;
+            await user.save();
+    
+            res.json({ message: "Password reset successfully" });
+    
+        } catch (error) {
+            console.error("Reset Password Error:", error);
+            res.status(500).json({ error: "Invalid or expired token" });
+        }
+    };
+    exports.sendSuccessEmail = async (email, name) => {
+        try {
+            const transporter = nodemailer.createTransport({
+                service: "Gmail",
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
+    
+            const mailOptions = {
+                from: `"VOLUNTEER ACT" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: "Dự án đã được duyệt thành công",
+                html: `
+                    <h2>Xin chào ${name},</h2>
+                    <p>Chúc mừng! Dự án của bạn đã được xét duyệt thành công.</p>
+                    <p>Cảm ơn bạn đã đăng ký!</p>
+                    <br/>
+                    <p><strong>Trân trọng,</strong></p>
+                    <p>Đội ngũ hỗ trợ</p>
+                `
+            };
+    
+            await transporter.sendMail(mailOptions);
+            console.log(`Email xác nhận đã gửi tới: ${email}`);
+        } catch (error) {
+            console.error("Lỗi khi gửi email xác nhận:", error);
+        }
+    };
+    exports.sendRejectEmail = async (email, name) => {
+        try {
+            const transporter = nodemailer.createTransport({
+                service: "Gmail",
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
+    
+            const mailOptions = {
+                from: `"Support Team" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: "Dự án của bạn đã bị từ chối",
+                html: `
+                    <h2>Xin chào ${name},</h2>
+                    <p>Dự án của bạn đã bị từ chối. Bạn có thể gửi mail đến địa chỉ <strong>volunteerconnection.noreply@gmail.com</strong> để có thể biết thêm thông tin.</p>
+                    <p>Cảm ơn bạn !</p>
+                    <br/>
+                    <p><strong>Trân trọng,</strong></p>
+                    <p>Đội ngũ hỗ trợ</p>
+                `
+            };
+    
+            await transporter.sendMail(mailOptions);
+            console.log(`Email xác nhận đã gửi tới: ${email}`);
+        } catch (error) {
+            console.error("Lỗi khi gửi email xác nhận:", error);
+        }
+    };
